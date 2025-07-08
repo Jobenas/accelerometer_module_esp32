@@ -1,0 +1,19 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.intelliSenseUpdateDelay": 2000,
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.autocomplete": "default",
+    "C_Cpp.suggestSnippets": true,
+    "files.associations": {
+        "*.dbclient-js": "javascript",
+        "*.h": "c",
+        "*.hpp": "cpp",
+        "*.cpp": "cpp",
+        "*.c": "c",
+        "*.ino": "cpp",
+        "arduino.h": "c",
+        "string": "cpp",
+        "iostream": "cpp",
+        "initializer_list": "cpp"
+    }
+}
