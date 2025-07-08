@@ -4,4 +4,12 @@
 .vscode/launch.json
 .vscode/ipch
 calibration_test.py
-
+simple_test.py
+test_modbus_master.py
+test_modbus.bat
+test_modbus.py
+STD_RMS_TEST_RESULTS.md
+SERIAL_CLEANUP_SUMMARY.md
+REFACTORING_SUMMARY.md
+PROJECT_CLEANUP_SUMMARY.md
+MODULAR_MODBUS_ANALYSIS.md
