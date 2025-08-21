@@ -17,8 +17,8 @@ bool ModbusInterface::begin() {
   Serial.println("[ModbusInterface] Initializing custom Modbus RTU...");
   #endif
   
-  // Initialize our custom Modbus RTU implementation
-  if (!modbusRTU.begin()) {
+  // Initialize our custom Modbus RTU implementation with explicit parameters
+  if (!modbusRTU.begin(MODBUS_SLAVE_ID, MODBUS_BAUDRATE, MODBUS_RX_PIN, MODBUS_TX_PIN, MODBUS_DE_RE_PIN)) {
     #if ENABLE_DEBUG_OUTPUT
     Serial.println("[ModbusInterface] Failed to initialize Modbus RTU!");
     #endif
@@ -30,6 +30,13 @@ bool ModbusInterface::begin() {
   
   #if ENABLE_DEBUG_OUTPUT
   Serial.println("[ModbusInterface] Custom Modbus RTU initialized successfully");
+  Serial.println("[ModbusInterface] Configuration:");
+  Serial.printf("  Slave ID: %d\n", MODBUS_SLAVE_ID);
+  Serial.printf("  Baudrate: %d\n", MODBUS_BAUDRATE);
+  Serial.printf("  RX Pin: %d\n", MODBUS_RX_PIN);
+  Serial.printf("  TX Pin: %d\n", MODBUS_TX_PIN);
+  Serial.printf("  DE/RE Pin: %d\n", MODBUS_DE_RE_PIN);
+  Serial.println("[ModbusInterface] Ready to receive Modbus requests...");
   #endif
   
   return true;

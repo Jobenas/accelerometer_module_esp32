@@ -5,7 +5,7 @@
 #include "analytics.h"
 
 // Modbus RTU configuration
-#define MODBUS_SLAVE_ID         1     // Modbus slave address
+#define MODBUS_SLAVE_ID         2     // Modbus slave address
 #define MODBUS_BAUDRATE         9600  // Baud rate  
 #define MODBUS_TX_PIN           17    // TX pin for Serial2
 #define MODBUS_RX_PIN           16    // RX pin for Serial2
@@ -159,8 +159,7 @@ private:
   void handleWriteSingleRegister(uint8_t* frame, uint16_t length);
   void handleWriteMultipleRegisters(uint8_t* frame, uint16_t length);
   
-  // CRC calculation
-  uint16_t calculateCRC16(uint8_t* data, uint16_t length);
+  // CRC calculation (moved calculateCRC16 to public section)
   bool checkCRC(uint8_t* frame, uint16_t length);
   void appendCRC(uint8_t* frame, uint16_t length);
   
@@ -199,6 +198,9 @@ public:
   bool setInputRegister(uint16_t address, uint16_t value);
   uint16_t getHoldingRegister(uint16_t address);
   uint16_t getInputRegister(uint16_t address);
+  
+  // CRC testing (for debugging) - moved from private section
+  uint16_t calculateCRC16(uint8_t* data, uint16_t length);
 };
 
 // Global instance

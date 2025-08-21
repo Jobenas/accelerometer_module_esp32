@@ -1,5 +1,6 @@
 #include "task_manager.h"
 #include "modbus_interface.h"
+#include "accelerometer_interface.h"
 
 // Task handles
 TaskHandle_t sampling_task_handle = nullptr;
@@ -34,35 +35,40 @@ void samplingTask(void* parameter) {
         
         // Check if buffer has space
         if (!dataBuffer.isFull()) {
-          // Read sensor data
-          int32_t x, y, z;
-          sensor.readXYZ(x, y, z);
-          
-          #if ENABLE_DEBUG_OUTPUT
-          static unsigned long last_sensor_debug = 0;
-          if (millis() - last_sensor_debug > 3000) {  // Debug every 3 seconds
-            Serial.printf("[SENSOR-RAW] Raw values: X=%ld, Y=%ld, Z=%ld\n", x, y, z);
+          // Read sensor data using abstraction layer
+          AccelData accelData;
+          if (accelerometer.readData(accelData) && accelData.valid) {
+            // Convert g-force to raw values for compatibility with existing buffer system
+            // Assuming scale factor similar to ADXL355 (can be adjusted)
+            int32_t x = (int32_t)(accelData.x * 256000.0f);
+            int32_t y = (int32_t)(accelData.y * 256000.0f);
+            int32_t z = (int32_t)(accelData.z * 256000.0f);
             
-            // Also show what these would be as g-values
-            float x_g = (float)x / 256000.0f;  // Using the same scale factor as readAcceleration
-            float y_g = (float)y / 256000.0f;
-            float z_g = (float)z / 256000.0f;
-            Serial.printf("[SENSOR-RAW] As g-values: X=%.6f, Y=%.6f, Z=%.6f\n", x_g, y_g, z_g);
-            last_sensor_debug = millis();
-          }
-          #endif
-          
-          // Add sample to buffer
-          if (dataBuffer.addSample(x, y, z)) {
-            sample_count++;
-            task_status.last_sample_time = millis();
+            #if ENABLE_DEBUG_OUTPUT
+            static unsigned long last_sensor_debug = 0;
+            if (millis() - last_sensor_debug > 3000) {  // Debug every 3 seconds
+              Serial.printf("[SENSOR-RAW] Raw values: X=%ld, Y=%ld, Z=%ld\n", x, y, z);
+              Serial.printf("[SENSOR-G] G-values: X=%.6f, Y=%.6f, Z=%.6f (%s)\n", 
+                           accelData.x, accelData.y, accelData.z, accelerometer.getSensorName());
+              last_sensor_debug = millis();
+            }
+            #endif
             
-            // Check if buffer is now full
-            if (dataBuffer.isFull()) {
-              // Signal processing task that buffer is ready
-              xSemaphoreGive(buffer_ready_semaphore);
+            // Add sample to buffer
+            if (dataBuffer.addSample(x, y, z)) {
+              sample_count++;
+              task_status.last_sample_time = millis();
+              
+              // Check if buffer is now full
+              if (dataBuffer.isFull()) {
+                // Signal processing task that buffer is ready
+                xSemaphoreGive(buffer_ready_semaphore);
+              }
+            } else {
+              task_status.sampling_errors++;
             }
           } else {
+            // Failed to read sensor data
             task_status.sampling_errors++;
           }
         } else {

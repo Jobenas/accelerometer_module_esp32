@@ -189,9 +189,26 @@ bool ModbusRTUCustom::validateFrame(uint8_t* frame, uint16_t length) {
 }
 
 void ModbusRTUCustom::processFrame() {
+  #if ENABLE_DEBUG_OUTPUT
+  Serial.println("[MODBUS DEBUG] === PROCESSING FRAME ===");
+  Serial.printf("[MODBUS DEBUG] Frame length: %d bytes\n", rx_buffer_index);
+  Serial.print("[MODBUS DEBUG] Frame content: ");
+  for (int i = 0; i < rx_buffer_index; i++) {
+    Serial.printf("0x%02X ", rx_buffer[i]);
+  }
+  Serial.println();
+  
+  // Check slave address first
+  if (rx_buffer_index > 0) {
+    Serial.printf("[MODBUS DEBUG] Slave ID: received=0x%02X, expected=0x%02X\n", 
+                 rx_buffer[0], slave_id);
+  }
+  #endif
+  
   if (!validateFrame(rx_buffer, rx_buffer_index)) {
     #if ENABLE_DEBUG_OUTPUT
     Serial.println("[Modbus] Frame validation failed");
+    Serial.println("[MODBUS DEBUG] === FRAME PROCESSING FAILED ===\n");
     #endif
     if (!checkCRC(rx_buffer, rx_buffer_index)) {
       stats.crc_errors++;
@@ -239,6 +256,10 @@ void ModbusRTUCustom::processFrame() {
   // Reset for next frame
   rx_buffer_index = 0;
   current_state = MODBUS_STATE_IDLE;
+  
+  #if ENABLE_DEBUG_OUTPUT
+  Serial.println("[MODBUS DEBUG] === FRAME PROCESSING COMPLETE ===\n");
+  #endif
 }
 
 void ModbusRTUCustom::handleReadHoldingRegisters(uint8_t* frame, uint16_t length) {
@@ -419,10 +440,31 @@ uint16_t ModbusRTUCustom::calculateCRC16(uint8_t* data, uint16_t length) {
 }
 
 bool ModbusRTUCustom::checkCRC(uint8_t* frame, uint16_t length) {
-  if (length < 3) return false;
+  if (length < 3) {
+    #if ENABLE_DEBUG_OUTPUT
+    Serial.println("[CRC DEBUG] Frame too short for CRC check");
+    #endif
+    return false;
+  }
   
+  // Calculate CRC for data (excluding the CRC bytes)
   uint16_t calculated_crc = calculateCRC16(frame, length - 2);
-  uint16_t received_crc = bytesToUint16(frame[length-1], frame[length-2]);  // Note: CRC is little-endian
+  
+  // Extract received CRC (last 2 bytes) - Modbus CRC is little-endian
+  uint16_t received_crc = bytesToUint16(frame[length-1], frame[length-2]);
+  
+  #if ENABLE_DEBUG_OUTPUT
+  Serial.printf("[CRC DEBUG] Frame length: %d\n", length);
+  Serial.printf("[CRC DEBUG] Data bytes: ");
+  for (int i = 0; i < length - 2; i++) {
+    Serial.printf("0x%02X ", frame[i]);
+  }
+  Serial.println();
+  Serial.printf("[CRC DEBUG] Received CRC: 0x%04X (bytes: 0x%02X 0x%02X)\n", 
+               received_crc, frame[length-2], frame[length-1]);
+  Serial.printf("[CRC DEBUG] Calculated CRC: 0x%04X\n", calculated_crc);
+  Serial.printf("[CRC DEBUG] CRC Match: %s\n", (calculated_crc == received_crc) ? "YES" : "NO");
+  #endif
   
   return (calculated_crc == received_crc);
 }

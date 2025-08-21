@@ -67,14 +67,14 @@ void loop() {
 #elif ACTIVE_TEST_MODE == 2
 
 #include <ModbusRtu.h>
+#include "modbus_rtu_custom.h"  // For MODBUS_SLAVE_ID definition
 
 #define RX_PIN 16
 #define TX_PIN 17
 #define DE_RE_PIN 4
 #define BAUDRATE 9600
-#define SLAVE_ID 1
 
-Modbus slave(SLAVE_ID, Serial2, DE_RE_PIN);
+Modbus slave(MODBUS_SLAVE_ID, Serial2, DE_RE_PIN);
 
 uint16_t au16data[16] = {
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
@@ -86,7 +86,7 @@ void setup() {
   
   Serial.println("ESP32 Simple Modbus RTU Slave Test");
   Serial.println("==================================");
-  Serial.printf("Slave ID: %d, Baudrate: %d\n", SLAVE_ID, BAUDRATE);
+  Serial.printf("Slave ID: %d, Baudrate: %d\n", MODBUS_SLAVE_ID, BAUDRATE);
   Serial.printf("Serial2 - RX: %d, TX: %d, DE/RE: %d\n", RX_PIN, TX_PIN, DE_RE_PIN);
   
   // Configure Serial2 pins
@@ -94,7 +94,7 @@ void setup() {
   slave.begin(BAUDRATE);
   
   Serial.println("Modbus slave initialized. Registers 0-15 contain values 1-16.");
-  Serial.println("Try reading holding registers 0-15 from slave ID 1.");
+  Serial.printf("Try reading holding registers 0-15 from slave ID %d.\n", MODBUS_SLAVE_ID);
 }
 
 void loop() {
@@ -239,15 +239,14 @@ void loop() {
 
 #else
 
-// Original full application code
-#include "adxl355.h"
+// Production mode: Full application with accelerometer abstraction
+#include "accelerometer_interface.h"
 #include "data_buffer.h"
 #include "analytics.h"
 #include "modbus_interface.h"
 #include "task_manager.h"
 
 // Global objects
-ADXL355 sensor;
 DataBuffer dataBuffer;
 Analytics analytics;
 ModbusInterface modbusInterface;
@@ -256,12 +255,21 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   
-  Serial.println("Starting ADXL355 with FreeRTOS...");
+  // FORCE PIN 4 LOW IMMEDIATELY - DEBUG
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+  Serial.println("DEBUG: Forced pin 4 LOW at startup");
+  delay(100);
   
-  // Initialize sensor
-  if (!sensor.begin()) {
-    Serial.println("Failed to initialize ADXL355!");
-    while(1); // Halt on failure
+  Serial.println("Starting Accelerometer System with FreeRTOS...");
+  
+  // Initialize accelerometer (abstracted - works with both ADXL355 and MPU6050)
+  if (!accelerometer.begin()) {
+    Serial.println("Failed to initialize accelerometer!");
+    Serial.println("WARNING: Continuing without accelerometer for Modbus testing...");
+    // while(1); // Halt on failure - COMMENTED OUT FOR TESTING
+  } else {
+    Serial.println("Accelerometer initialized successfully!");
   }
   
   // Initialize data buffer
@@ -282,6 +290,18 @@ void setup() {
     Serial.println("Failed to initialize Modbus interface!");
     while(1); // Halt on failure
   }
+  
+  // DEBUG: Check pin 4 state after Modbus init
+  Serial.printf("DEBUG: Pin 4 state after Modbus init: %s\n", 
+                digitalRead(4) ? "HIGH (3.3V) - TRANSMIT" : "LOW (0V) - RECEIVE");
+  
+  // CRC TEST: Verify CRC calculation with known frame
+  Serial.println("=== CRC TEST ===");
+  uint8_t test_frame[] = {0x02, 0x04, 0x00, 0x00, 0x00, 0x01};
+  uint16_t test_crc = modbusRTU.calculateCRC16(test_frame, 6);
+  Serial.printf("Test frame CRC: 0x%04X (expected: 0xF931)\n", test_crc);
+  Serial.printf("Note: In Modbus frame, this appears as: 0x31 0xF9 (little-endian)\n");
+  Serial.println("================");
   #endif
   
   // Start FreeRTOS tasks
@@ -290,7 +310,7 @@ void setup() {
     while(1); // Halt on failure
   }
   
-  Serial.println("System ready - FreeRTOS tasks running...");
+  Serial.printf("System ready - FreeRTOS tasks running with %s...\n", accelerometer.getSensorName());
 }
 
 void loop() {
@@ -301,6 +321,11 @@ void loop() {
   if (millis() - last_stats_time > 30000) {
     Serial.println("System Status: Running");
     Serial.printf("Uptime: %lu seconds\n", millis() / 1000);
+    Serial.printf("Accelerometer: %s\n", accelerometer.getSensorName());
+    
+    // DEBUG: Check pin 4 state periodically
+    Serial.printf("DEBUG: Pin 4 current state: %s\n", 
+                  digitalRead(4) ? "HIGH (3.3V) - TRANSMIT" : "LOW (0V) - RECEIVE");
     
     // Print analytics summary only
     if (analytics.isInitialized()) {
